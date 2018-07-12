@@ -26,17 +26,6 @@ data['sens_level'] = data['target_level'] - data['masker_level']
 DATE_FMT = '%Y %b %d'
 
 
-def calc_psi(data, animal, sessions, grouping):
-    m_animal = data['animal'] == animal
-    #m_date = data['date'].apply(lambda x: x in dates)
-    m_session = data['session'].apply(lambda x: x in sessions)
-    psi = data.loc[m_animal & m_session] \
-        .groupby(grouping + ['depth'])['yes'] \
-        .agg(['size', 'sum', 'mean']) \
-        .rename(columns={'size': 'n', 'sum': 'k', 'mean': 'p'})
-    return psi
-
-
 from bokeh.layouts import column, row, widgetbox, layout
 from bokeh.models import ColumnDataSource, Legend, RangeTool, Range1d
 from bokeh.models.widgets import Select, MultiSelect, CheckboxButtonGroup
@@ -60,15 +49,12 @@ def update_animal_plots(animal):
         'trials': n_trials.values,
     }
 
-    m = m_animal & data['depth'] == 0.0
+    m = m_animal & (data['depth'] == 0.0)
     fa = data.loc[m].groupby('session')['yes'].mean()
     animal_fa.data = {
         'session': fa.index.values,
         'fa': fa.values,
     }
-
-    selected_range.start = n_trials.index.min()
-    selected_range.end = n_trials.index.max()
 
 
 def update_date_select(animal):
@@ -98,7 +84,8 @@ def create_plot():
 
     psi = psi.reindex(sorted(psi.columns), axis=1)
 
-    plot = figure(title='psychometric function', tools="")
+    plot = figure(title='psychometric function', tools="", x_range=(0, 1),
+                  y_range=(0, 1))
     plot.xaxis.axis_label = 'AM depth (frac)'
     plot.yaxis.axis_label = 'Hit rate (frac)'
 
@@ -145,25 +132,14 @@ groupby_select.on_change('active', lambda attr, old, new: update_plot())
 
 animal_trials = ColumnDataSource()
 animal_trials_plot = figure(title='number of trials', tools="", width=1000,
-                             height=250)
+                             height=150)
 animal_trials_plot.xaxis.axis_label = 'Session'
 animal_trials_plot.yaxis.axis_label = 'Number of trials'
 animal_trials_plot.line('session', 'trials', source=animal_trials)
 
-def update_range():
-    print(selected_range.start)
-    print(selected_range.end)
-
-selected_range = Range1d()
-range_tool = RangeTool(x_range=selected_range)
-animal_trials_plot.add_tools(range_tool)
-animal_trials_plot.toolbar.active_multi = range_tool
-selected_range.on_change('start', lambda attr, old, new: update_range())
-selected_range.on_change('end', lambda attr, old, new: update_range())
-
 animal_fa = ColumnDataSource()
 animal_fa_plot = figure(title='False alarm rate', tools="", width=1000,
-                        height=250, y_range=(0, 1))
+                        height=150, y_range=(0, 1))
 animal_fa_plot.xaxis.axis_label = 'Session'
 animal_fa_plot.yaxis.axis_label = 'FA rate'
 animal_fa_plot.line('session', 'fa', source=animal_fa)
